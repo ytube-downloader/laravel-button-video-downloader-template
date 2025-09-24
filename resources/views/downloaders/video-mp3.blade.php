@@ -47,14 +47,46 @@
                                 placeholder="Paste video URL to extract audio..."
                                 class="flex-1 px-6 py-4 text-lg border-0 focus:ring-2 focus:ring-purple-500 focus:outline-none theme-heading dark:theme-heading"
                                 @input="validateUrl()"
+                                :disabled="loading || extracting"
                             >
                             <button 
                                 @click="analyzeVideo()"
-                                :disabled="!isValidUrl"
+                                :disabled="!isValidUrl || loading"
                                 class="theme-purple-bg text-white px-8 py-4 font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed rounded-r-lg"
                             >
-                                Extract Audio
+                                <span x-show="!loading">Extract Audio</span>
+                                <span x-show="loading">Analyzing...</span>
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Display -->
+                <div x-show="errorMessage" class="mb-8 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="text-red-700 dark:text-red-300" x-text="errorMessage"></span>
+                    </div>
+                </div>
+
+                <!-- Video Info Display -->
+                <div x-show="audioInfo" class="mb-8">
+                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <div class="md:col-span-1">
+                                <img :src="audioInfo?.thumbnail" class="w-full h-32 object-cover rounded border border-gray-200 dark:border-gray-600" alt="Video thumbnail">
+                            </div>
+                            <div class="md:col-span-2">
+                                <h3 class="text-lg font-semibold theme-heading dark:theme-heading mb-2" x-text="audioInfo?.title"></h3>
+                                <p class="text-sm theme-base dark:theme-base mb-2">
+                                    Duration: <span x-text="audioInfo?.duration"></span>
+                                </p>
+                                <p class="text-sm theme-base dark:theme-base mb-4">
+                                    <span x-text="audioInfo?.uploader"></span> • <span x-text="audioInfo?.views"></span>
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -86,11 +118,18 @@
                                                     @case('AAC')
                                                         High quality, efficient
                                                         @break
+                                                    @case('FLAC')
+                                                        Lossless compression
+                                                        @break
                                                     @case('OGG')
                                                         Open source format
                                                         @break
                                                 @endswitch
                                             </div>
+                                        </div>
+                                        <div class="text-xs theme-base dark:theme-base">
+                                            <span x-show="audioInfo?.estimated_sizes && selectedFormat === '{{ strtolower($format) }}'" 
+                                                  x-text="getEstimatedSize('{{ strtolower($format) }}')"></span>
                                         </div>
                                     </label>
                                 @endforeach
@@ -101,13 +140,12 @@
                         <div>
                             <label class="block text-sm font-medium theme-heading dark:theme-heading mb-3">Audio Quality</label>
                             <div class="space-y-3">
-                                <div>
+                                <div x-show="selectedFormat === 'mp3' || selectedFormat === 'm4a' || selectedFormat === 'aac'">
                                     <label class="block text-xs theme-base dark:theme-base mb-1">Bitrate</label>
                                     <select x-model="audioBitrate" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
-                                        <option value="128">128 kbps (Standard)</option>
-                                        <option value="192">192 kbps (Good)</option>
-                                        <option value="256">256 kbps (High)</option>
-                                        <option value="320">320 kbps (Maximum)</option>
+                                        @foreach($pageData['audio_qualities'] as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
                                     </select>
                                 </div>
                                 
@@ -116,13 +154,25 @@
                                     <select x-model="sampleRate" class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
                                         <option value="44100">44.1 kHz (CD Quality)</option>
                                         <option value="48000">48 kHz (Professional)</option>
+                                        <option value="96000" x-show="selectedFormat === 'wav' || selectedFormat === 'flac'">96 kHz (Hi-Res)</option>
                                     </select>
+                                </div>
+
+                                <div class="space-y-2 mt-4">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" x-model="normalizeAudio" class="mr-2">
+                                        <span class="text-sm theme-heading dark:theme-heading">Normalize audio levels</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" x-model="removeNoise" class="mr-2">
+                                        <span class="text-sm theme-heading dark:theme-heading">Apply noise reduction</span>
+                                    </label>
                                 </div>
                             </div>
 
                             <button 
                                 @click="startAudioExtraction()"
-                                :disabled="extracting"
+                                :disabled="extracting || !audioInfo"
                                 class="w-full mt-6 theme-purple-bg text-white py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
                             >
                                 <span x-show="!extracting">Download Audio</span>
@@ -143,8 +193,32 @@
                             <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300" :style="`width: ${progress}%`"></div>
                         </div>
                         <div class="text-xs theme-base dark:theme-base">
-                            Processing: <span x-text="selectedFormat.toUpperCase()"></span> @ <span x-text="audioBitrate"></span> kbps
+                            <div>Format: <span x-text="selectedFormat.toUpperCase()"></span></div>
+                            <div x-show="selectedFormat !== 'flac' && selectedFormat !== 'wav'">Quality: <span x-text="audioBitrate"></span> kbps</div>
+                            <div x-show="currentDownloadId">Download ID: <span x-text="currentDownloadId"></span></div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Success Message -->
+                <div x-show="downloadCompleted" class="mb-8">
+                    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-6">
+                        <div class="flex items-center mb-4">
+                            <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-lg font-medium text-green-800 dark:text-green-200">Audio extraction completed!</span>
+                        </div>
+                        <div class="text-sm text-green-700 dark:text-green-300 mb-4">
+                            <div>Format: <span x-text="selectedFormat.toUpperCase()"></span></div>
+                            <div x-show="completedFileSize">File size: <span x-text="completedFileSize"></span></div>
+                        </div>
+                        <a :href="downloadUrl" 
+                           x-show="downloadUrl"
+                           class="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                           download>
+                            Download Audio File
+                        </a>
                     </div>
                 </div>
             </div>
@@ -169,7 +243,7 @@
                 </svg>
             </div>
             <h3 class="text-xl font-semibold theme-heading dark:theme-heading mb-2">Multiple Formats</h3>
-            <p class="theme-base dark:theme-base">Support for MP3, WAV, M4A, AAC, and OGG audio formats.</p>
+            <p class="theme-base dark:theme-base">Support for MP3, WAV, M4A, AAC, FLAC, and OGG audio formats.</p>
         </div>
         <div class="text-center p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
             <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -186,38 +260,191 @@
 <script>
 function audioDownloader() {
     return {
+        // Form data
         videoUrl: '',
         selectedFormat: 'mp3',
         audioBitrate: '192',
         sampleRate: '44100',
+        normalizeAudio: false,
+        removeNoise: false,
+
+        // UI state
         isValidUrl: false,
+        loading: false,
         showOptions: false,
         extracting: false,
+        downloadCompleted: false,
+        
+        // Progress and results
         progress: 0,
+        audioInfo: null,
+        currentDownloadId: null,
+        downloadUrl: null,
+        completedFileSize: null,
+        errorMessage: null,
 
         validateUrl() {
             const urlPattern = /^https?:\/\/.+/;
             this.isValidUrl = urlPattern.test(this.videoUrl);
+            if (this.isValidUrl) {
+                this.errorMessage = null;
+            }
         },
 
-        analyzeVideo() {
+        async analyzeVideo() {
             if (!this.isValidUrl) return;
-            this.showOptions = true;
+
+            this.loading = true;
+            this.errorMessage = null;
+            this.showOptions = false;
+            this.audioInfo = null;
+
+            try {
+                const response = await fetch('/api/audio-info?' + new URLSearchParams({
+                    url: this.videoUrl
+                }), {
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.audioInfo = data.audio_info;
+                    this.showOptions = true;
+                } else {
+                    this.errorMessage = data.error || 'Failed to analyze video';
+                }
+            } catch (error) {
+                console.error('Error analyzing video:', error);
+                this.errorMessage = 'Network error. Please check your connection and try again.';
+            } finally {
+                this.loading = false;
+            }
         },
 
-        startAudioExtraction() {
-            this.extracting = true;
-            this.progress = 0;
+        async startAudioExtraction() {
+            if (!this.audioInfo) return;
 
-            const interval = setInterval(() => {
-                this.progress += Math.random() * 12;
-                if (this.progress >= 100) {
-                    this.progress = 100;
-                    this.extracting = false;
-                    clearInterval(interval);
-                    alert(`Audio extracted successfully as ${this.selectedFormat.toUpperCase()}!`);
+            this.extracting = true;
+            this.downloadCompleted = false;
+            this.progress = 0;
+            this.errorMessage = null;
+            this.currentDownloadId = null;
+            this.downloadUrl = null;
+
+            try {
+                // Choose the appropriate endpoint
+                const endpoint = this.selectedFormat === 'mp3' ? '/api/download-mp3' : '/api/download-audio';
+                
+                const requestData = {
+                    url: this.videoUrl,
+                    format: this.selectedFormat,
+                    sample_rate: parseInt(this.sampleRate),
+                    normalize: this.normalizeAudio,
+                    remove_noise: this.removeNoise
+                };
+
+                // Add bitrate for compressed formats
+                if (['mp3', 'm4a', 'aac'].includes(this.selectedFormat)) {
+                    requestData.bitrate = parseInt(this.audioBitrate);
                 }
-            }, 300);
+
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.currentDownloadId = data.download_id;
+                    this.startProgressTracking();
+                } else {
+                    throw new Error(data.error || 'Audio extraction failed');
+                }
+
+            } catch (error) {
+                console.error('Error starting extraction:', error);
+                this.errorMessage = error.message || 'Failed to start audio extraction';
+                this.extracting = false;
+            }
+        },
+
+        async startProgressTracking() {
+            if (!this.currentDownloadId) return;
+
+            const progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/audio-download-status?' + new URLSearchParams({
+                        download_id: this.currentDownloadId
+                    }), {
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        this.progress = Math.min(data.progress || 0, 100);
+
+                        if (data.status === 'completed') {
+                            this.progress = 100;
+                            this.extracting = false;
+                            this.downloadCompleted = true;
+                            this.downloadUrl = data.download_url;
+                            this.completedFileSize = data.file_size;
+                            clearInterval(progressInterval);
+                        } else if (data.status === 'failed') {
+                            throw new Error(data.error || 'Download failed');
+                        }
+                    } else {
+                        throw new Error(data.error || 'Failed to get download status');
+                    }
+                } catch (error) {
+                    console.error('Error checking progress:', error);
+                    this.errorMessage = error.message || 'Failed to track progress';
+                    this.extracting = false;
+                    clearInterval(progressInterval);
+                }
+            }, 2000); // Check every 2 seconds
+
+            // Fallback timeout after 10 minutes
+            setTimeout(() => {
+                if (this.extracting) {
+                    clearInterval(progressInterval);
+                    this.errorMessage = 'Download timeout. Please try again with a shorter video.';
+                    this.extracting = false;
+                }
+            }, 600000);
+        },
+
+        getEstimatedSize(format) {
+            if (!this.audioInfo?.estimated_sizes) return '';
+            
+            const sizeKey = format === 'mp3' ? `mp3_${this.audioBitrate}` : format;
+            const size = this.audioInfo.estimated_sizes[sizeKey];
+            
+            return size?.formatted || '';
+        },
+
+        resetForm() {
+            this.videoUrl = '';
+            this.audioInfo = null;
+            this.showOptions = false;
+            this.extracting = false;
+            this.downloadCompleted = false;
+            this.progress = 0;
+            this.currentDownloadId = null;
+            this.downloadUrl = null;
+            this.errorMessage = null;
+            this.isValidUrl = false;
         }
     }
 }

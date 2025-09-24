@@ -1,9 +1,8 @@
 <?php
 
-// routes/web.php - Updated routes with new API endpoints
-
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\DownloaderController;
+use App\Http\Middleware\RateLimitDownloads;
 use Illuminate\Support\Facades\Route;
 
 // Home route
@@ -16,15 +15,28 @@ Route::get('/playlist-downloader', [DownloaderController::class, 'playlistDownlo
 Route::get('/video-to-wav', [DownloaderController::class, 'videoToWav'])->name('downloader.video-wav');
 Route::get('/video-1080p-downloader', [DownloaderController::class, 'video1080p'])->name('downloader.1080p');
 
-// Enhanced API routes for external video download service
+// Enhanced API routes with different rate limits
 Route::prefix('api')->group(function () {
-    // Basic download operations
-    Route::post('/download', [DownloaderController::class, 'download'])->name('api.download');
-    Route::get('/video-info', [DownloaderController::class, 'getVideoInfo'])->name('api.video-info');
-    Route::get('/download-status', [DownloaderController::class, 'downloadStatus'])->name('api.download-status');
     
-    // Advanced features
-    Route::post('/batch-download', [DownloaderController::class, 'batchDownload'])->name('api.batch-download');
-    Route::get('/supported-formats', [DownloaderController::class, 'getSupportedFormats'])->name('api.supported-formats');
-    Route::post('/download-clip', [DownloaderController::class, 'downloadClip'])->name('api.download-clip');
+    // Info endpoints - higher rate limit (lighter operations)
+    Route::middleware(['throttle:120,1'])->group(function () {
+        Route::get('/video-info', [DownloaderController::class, 'getVideoInfo'])->name('api.video-info');
+        Route::get('/audio-info', [DownloaderController::class, 'getAudioInfo'])->name('api.audio-info');
+        Route::get('/supported-formats', [DownloaderController::class, 'getSupportedFormats'])->name('api.supported-formats');
+        Route::get('/download-status', [DownloaderController::class, 'downloadStatus'])->name('api.download-status');
+        Route::get('/audio-download-status', [DownloaderController::class, 'getAudioDownloadStatus'])->name('api.audio-download-status');
+    });
+    
+    // Download endpoints - moderate rate limit (resource intensive)
+    Route::middleware(['throttle:30,1'])->group(function () {
+        Route::post('/download', [DownloaderController::class, 'download'])->name('api.download');
+        Route::post('/download-mp3', [DownloaderController::class, 'downloadMp3'])->name('api.download-mp3');
+        Route::post('/download-audio', [DownloaderController::class, 'downloadAudio'])->name('api.download-audio');
+        Route::post('/download-clip', [DownloaderController::class, 'downloadClip'])->name('api.download-clip');
+    });
+    
+    // Batch operations - stricter rate limit (very resource intensive)
+    Route::middleware(['throttle:10,1'])->group(function () {
+        Route::post('/batch-download', [DownloaderController::class, 'batchDownload'])->name('api.batch-download');
+    });
 });

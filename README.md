@@ -1,6 +1,6 @@
 # Laravel 12 Video Downloader Template
 
-A modern, responsive video downloader web application built with Laravel 12, based on the original React video downloader template. This application provides a clean, professional interface for downloading videos from popular platforms in various qualities and formats.
+A modern, responsive video downloader web application built with Laravel 12. This application provides a clean, professional interface for downloading videos from popular platforms in various qualities and formats.
 
 ## 🎯 Features
 
