@@ -1,5 +1,7 @@
 <?php
 
+// routes/web.php - Updated routes with new API endpoints
+
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\DownloaderController;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +16,15 @@ Route::get('/playlist-downloader', [DownloaderController::class, 'playlistDownlo
 Route::get('/video-to-wav', [DownloaderController::class, 'videoToWav'])->name('downloader.video-wav');
 Route::get('/video-1080p-downloader', [DownloaderController::class, 'video1080p'])->name('downloader.1080p');
 
-// API routes for downloading
-Route::post('/api/download', [DownloaderController::class, 'download'])->name('api.download');
-Route::get('/api/video-info', [DownloaderController::class, 'getVideoInfo'])->name('api.video-info');
+// Enhanced API routes for external video download service
+Route::prefix('api')->group(function () {
+    // Basic download operations
+    Route::post('/download', [DownloaderController::class, 'download'])->name('api.download');
+    Route::get('/video-info', [DownloaderController::class, 'getVideoInfo'])->name('api.video-info');
+    Route::get('/download-status', [DownloaderController::class, 'downloadStatus'])->name('api.download-status');
+    
+    // Advanced features
+    Route::post('/batch-download', [DownloaderController::class, 'batchDownload'])->name('api.batch-download');
+    Route::get('/supported-formats', [DownloaderController::class, 'getSupportedFormats'])->name('api.supported-formats');
+    Route::post('/download-clip', [DownloaderController::class, 'downloadClip'])->name('api.download-clip');
+});
