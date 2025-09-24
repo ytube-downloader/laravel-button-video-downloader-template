@@ -10,54 +10,54 @@ class HomeController extends Controller
     public function index(): View
     {
         $heroData = [
-            'title' => 'Media File Converter',
-            'subtitle' => 'Convert your media files to any format quickly and easily',
-            'description' => 'Fast, secure, and reliable media conversion tool supporting multiple formats.'
+            'title' => 'Video Downloader',
+            'subtitle' => 'Download videos from popular social platforms',
+            'description' => 'Fast, secure, and reliable video downloading tool supporting multiple formats and qualities.'
         ];
 
         $features = [
             [
                 'icon' => 'video',
-                'title' => 'Video Conversion',
-                'description' => 'Convert videos to various formats including MP4, AVI, MOV, and more.'
+                'title' => 'HD Video Download',
+                'description' => 'Download videos in various qualities including 4K, 1080p, 720p, and more.'
             ],
             [
                 'icon' => 'audio',
-                'title' => 'Audio Conversion',
-                'description' => 'Transform audio files to MP3, WAV, FLAC, and other popular formats.'
+                'title' => 'Audio Extraction',
+                'description' => 'Extract audio from videos and save as MP3, WAV, or other audio formats.'
             ],
             [
-                'icon' => 'batch',
-                'title' => 'Batch Processing',
-                'description' => 'Process multiple files at once to save time and effort.'
+                'icon' => 'playlist',
+                'title' => 'Playlist Support',
+                'description' => 'Download entire playlists with a single click to save time and effort.'
             ],
             [
-                'icon' => 'quality',
-                'title' => 'High Quality',
-                'description' => 'Maintain excellent quality during conversion with advanced algorithms.'
+                'icon' => 'fast',
+                'title' => 'Fast Processing',
+                'description' => 'Quick downloads with high-speed servers and optimized processing.'
             ]
         ];
 
         $partners = [
-            'TechCorp', 'MediaPro', 'DigitalWave', 'StreamTech', 'ConvertMax'
+            'VideoTech', 'MediaStream', 'DownloadPro', 'StreamSaver', 'QuickVid'
         ];
 
         $faqs = [
             [
-                'question' => 'What file formats are supported?',
-                'answer' => 'We support all major video and audio formats including MP4, AVI, MOV, MP3, WAV, FLAC, and many more.'
+                'question' => 'What video platforms are supported?',
+                'answer' => 'We support downloads from all major video sharing platforms and social media sites.'
             ],
             [
-                'question' => 'Is the conversion process secure?',
-                'answer' => 'Yes, all files are processed securely and deleted from our servers after conversion.'
+                'question' => 'Is the downloading process secure?',
+                'answer' => 'Yes, all downloads are processed securely and we don\'t store any personal information.'
             ],
             [
-                'question' => 'How long does conversion take?',
-                'answer' => 'Conversion time depends on file size and format, but most conversions complete within minutes.'
+                'question' => 'How long does downloading take?',
+                'answer' => 'Download time depends on video length and quality, but most downloads complete within minutes.'
             ],
             [
-                'question' => 'Is there a file size limit?',
-                'answer' => 'Free users can convert files up to 100MB. Premium users have higher limits.'
+                'question' => 'Are there any limits on video length?',
+                'answer' => 'Free users can download videos up to 2 hours. Premium users have no limits.'
             ]
         ];
 

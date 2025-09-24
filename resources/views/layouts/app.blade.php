@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Media Converter - Convert Files Online')</title>
-    <meta name="description" content="@yield('description', 'Fast and secure online media converter. Convert videos and audio files to various formats quickly and easily.')">
+    <title>@yield('title', 'Video Downloader - Download Videos Online')</title>
+    <meta name="description" content="@yield('description', 'Fast and secure online video downloader. Download videos from popular platforms in various qualities and formats.')">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -37,6 +37,21 @@
             .dark\:theme-body-bg { background-color: var(--color-dark-body); }
             .dark\:theme-heading-bg { background-color: var(--color-dark-heading); }
         }
+
+        .url-input {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 2px;
+        }
+        
+        .url-input input {
+            background: white;
+            border-radius: 10px;
+        }
+
+        .dark .url-input input {
+            background: #1f2937;
+        }
     </style>
 
     <!-- Alpine.js for interactivity -->
@@ -55,9 +70,9 @@
                 <!-- Navigation Links -->
                 <div class="hidden md:flex space-x-6">
                     <a href="{{ route('home') }}" class="hover:theme-purple transition-colors">Home</a>
-                    <a href="{{ route('converter.4k-video') }}" class="hover:theme-purple transition-colors">4K Video</a>
-                    <a href="{{ route('converter.audio') }}" class="hover:theme-purple transition-colors">Audio</a>
-                    <a href="{{ route('converter.batch') }}" class="hover:theme-purple transition-colors">Batch</a>
+                    <a href="{{ route('downloader.4k-video') }}" class="hover:theme-purple transition-colors">4K Video</a>
+                    <a href="{{ route('downloader.video-mp3') }}" class="hover:theme-purple transition-colors">Video to MP3</a>
+                    <a href="{{ route('downloader.playlist') }}" class="hover:theme-purple transition-colors">Playlist</a>
                 </div>
 
                 <!-- Mobile Menu Button -->
@@ -88,25 +103,25 @@
 
                 <!-- Links -->
                 <div class="text-center lg:text-left">
-                    <h3 class="text-xl font-bold theme-heading dark:theme-heading mb-4">More Tools</h3>
+                    <h3 class="text-xl font-bold theme-heading dark:theme-heading mb-4">Download Tools</h3>
                     <ul class="theme-base dark:theme-base lg:grid lg:grid-cols-2 lg:gap-x-10">
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('home') }}">Media File Converter</a>
+                            <a href="{{ route('home') }}">Video Downloader</a>
                         </li>
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('converter.4k-video') }}">4K Video Converter</a>
+                            <a href="{{ route('downloader.4k-video') }}">4K Video Downloader</a>
                         </li>
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('converter.audio') }}">Audio Converter</a>
+                            <a href="{{ route('downloader.video-mp3') }}">Video to MP3</a>
                         </li>
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('converter.batch') }}">Batch Converter</a>
+                            <a href="{{ route('downloader.playlist') }}">Playlist Downloader</a>
                         </li>
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('converter.audio-wav') }}">Audio to WAV</a>
+                            <a href="{{ route('downloader.video-wav') }}">Video to WAV</a>
                         </li>
                         <li class="text-sm font-light mb-8">
-                            <a href="{{ route('converter.1080p') }}">1080p Video Converter</a>
+                            <a href="{{ route('downloader.1080p') }}">1080p Video Downloader</a>
                         </li>
                     </ul>
                 </div>
