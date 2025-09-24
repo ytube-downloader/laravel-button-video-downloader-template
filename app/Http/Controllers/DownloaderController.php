@@ -341,4 +341,274 @@ class DownloaderController extends Controller
             ], 500);
         }
     }
+
+
+
+    /**
+     * Get video info specifically for audio extraction
+     */
+    public function getAudioInfo(Request $request): JsonResponse
+    {
+        $request->validate([
+            'url' => 'required|url'
+        ]);
+
+        try {
+            $videoInfo = $this->downloadService->getVideoInfo($request->input('url'));
+            
+            if ($videoInfo['success']) {
+                // Add audio-specific information
+                $audioInfo = $videoInfo['video_info'];
+                $audioInfo['available_audio_formats'] = ['MP3', 'WAV', 'M4A', 'AAC', 'FLAC', 'OGG'];
+                $audioInfo['audio_qualities'] = [
+                    '96' => '96 kbps (Mobile)',
+                    '128' => '128 kbps (Standard)', 
+                    '192' => '192 kbps (High)',
+                    '256' => '256 kbps (Premium)',
+                    '320' => '320 kbps (Maximum)'
+                ];
+                $audioInfo['estimated_audio_sizes'] = $this->calculateAudioSizes($audioInfo['duration'] ?? '0:00');
+                
+                return response()->json([
+                    'success' => true,
+                    'audio_info' => $audioInfo
+                ]);
+            }
+
+            return response()->json($videoInfo, 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to get audio info: ' . $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Download audio in MP3 format
+     */
+    public function downloadMp3(Request $request): JsonResponse
+    {
+        $request->validate([
+            'url' => 'required|url',
+            'bitrate' => 'required|integer|in:96,128,192,256,320',
+            'sample_rate' => 'sometimes|integer|in:44100,48000',
+            'normalize' => 'sometimes|boolean',
+            'remove_noise' => 'sometimes|boolean'
+        ]);
+
+        try {
+            $url = $request->input('url');
+            $bitrate = $request->input('bitrate', 192);
+            $sampleRate = $request->input('sample_rate', 44100);
+            $normalize = $request->input('normalize', false);
+            $removeNoise = $request->input('remove_noise', false);
+
+            $options = [
+                'sample_rate' => $sampleRate,
+                'normalize_audio' => $normalize,
+                'noise_reduction' => $removeNoise
+            ];
+
+            $result = $this->downloadService->extractAudio($url, 'mp3', $bitrate, $options);
+
+            if ($result['success']) {
+                // Create local download record
+                $download = $this->downloadService->createDownload([
+                    'url' => $url,
+                    'quality' => $bitrate . 'kbps',
+                    'format' => 'mp3'
+                ], $request->ip());
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'MP3 extraction started successfully',
+                    'download_id' => $result['download_id'],
+                    'local_id' => $download->download_id,
+                    'format_name' => 'MP3 Audio',
+                    'quality' => $bitrate . ' kbps',
+                    'info' => $result['info'] ?? null
+                ]);
+            }
+
+            return response()->json($result, 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'MP3 download failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download audio in various formats
+     */
+    public function downloadAudio(Request $request): JsonResponse
+    {
+        $request->validate([
+            'url' => 'required|url',
+            'format' => 'required|string|in:mp3,wav,m4a,aac,flac,ogg',
+            'bitrate' => 'sometimes|integer|in:96,128,192,256,320',
+            'sample_rate' => 'sometimes|integer|in:44100,48000,96000',
+            'bit_depth' => 'sometimes|integer|in:16,24,32',
+            'normalize' => 'sometimes|boolean',
+            'remove_noise' => 'sometimes|boolean'
+        ]);
+
+        try {
+            $url = $request->input('url');
+            $format = $request->input('format');
+            $bitrate = $request->input('bitrate', 192);
+            $sampleRate = $request->input('sample_rate', 44100);
+            $bitDepth = $request->input('bit_depth', 16);
+            $normalize = $request->input('normalize', false);
+            $removeNoise = $request->input('remove_noise', false);
+
+            $options = [
+                'sample_rate' => $sampleRate,
+                'bit_depth' => $bitDepth,
+                'normalize_audio' => $normalize,
+                'noise_reduction' => $removeNoise
+            ];
+
+            // Use appropriate service method based on format
+            if ($format === 'wav') {
+                $result = $this->downloadService->extractWAV($url, $bitrate);
+            } elseif ($format === 'flac') {
+                $result = $this->downloadService->extractFLAC($url);
+            } else {
+                $result = $this->downloadService->extractAudio($url, $format, $bitrate, $options);
+            }
+
+            if ($result['success']) {
+                // Create local download record
+                $download = $this->downloadService->createDownload([
+                    'url' => $url,
+                    'quality' => $format === 'flac' ? 'lossless' : $bitrate . 'kbps',
+                    'format' => $format
+                ], $request->ip());
+
+                return response()->json([
+                    'success' => true,
+                    'message' => ucfirst($format) . ' extraction started successfully',
+                    'download_id' => $result['download_id'],
+                    'local_id' => $download->download_id,
+                    'format_name' => $this->getFormatDisplayName($format),
+                    'quality' => $format === 'flac' ? 'Lossless' : $bitrate . ' kbps',
+                    'info' => $result['info'] ?? null
+                ]);
+            }
+
+            return response()->json($result, 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Audio download failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get detailed audio download progress
+     */
+    public function getAudioDownloadStatus(Request $request): JsonResponse
+    {
+        $request->validate([
+            'download_id' => 'required|string'
+        ]);
+
+        try {
+            $downloadId = $request->input('download_id');
+            
+            // Get status from external API
+            $result = $this->downloadService->getDownloadStatus($downloadId);
+            
+            if ($result['success']) {
+                $data = $result['data'];
+                
+                return response()->json([
+                    'success' => true,
+                    'status' => $data['status'] ?? 'processing',
+                    'progress' => $data['progress'] ?? 0,
+                    'download_url' => $data['download_url'] ?? null,
+                    'file_size' => $data['file_size'] ?? null,
+                    'estimated_time_remaining' => $data['eta'] ?? null,
+                    'error' => $data['error'] ?? null
+                ]);
+            }
+
+            return response()->json($result, 400);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to get download status: ' . $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Calculate estimated file sizes for different audio formats
+     */
+    private function calculateAudioSizes(string $duration): array
+    {
+        // Parse duration (format: "mm:ss" or "h:mm:ss")
+        $parts = explode(':', $duration);
+        $seconds = 0;
+        
+        if (count($parts) == 2) {
+            $seconds = ($parts[0] * 60) + $parts[1];
+        } elseif (count($parts) == 3) {
+            $seconds = ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2];
+        }
+        
+        if ($seconds == 0) return [];
+
+        $minutes = $seconds / 60;
+        
+        // Approximate sizes in MB per minute for different audio formats
+        $sizesPerMinute = [
+            'mp3_96' => 0.7,
+            'mp3_128' => 1.0,
+            'mp3_192' => 1.4,
+            'mp3_256' => 1.9,
+            'mp3_320' => 2.4,
+            'wav' => 10.0,
+            'flac' => 5.0,
+            'm4a' => 0.8,
+            'aac' => 0.9,
+            'ogg' => 1.1
+        ];
+
+        $sizes = [];
+        foreach ($sizesPerMinute as $format => $sizePerMin) {
+            $totalMB = $minutes * $sizePerMin;
+            $sizes[$format] = [
+                'mb' => round($totalMB, 1),
+                'formatted' => $totalMB > 1024 ? round($totalMB / 1024, 2) . ' GB' : round($totalMB, 1) . ' MB'
+            ];
+        }
+
+        return $sizes;
+    }
+
+    /**
+     * Get display name for audio format
+     */
+    private function getFormatDisplayName(string $format): string
+    {
+        $displayNames = [
+            'mp3' => 'MP3 Audio',
+            'wav' => 'WAV Audio (Uncompressed)',
+            'm4a' => 'M4A Audio',
+            'aac' => 'AAC Audio',
+            'flac' => 'FLAC Audio (Lossless)',
+            'ogg' => 'OGG Audio'
+        ];
+
+        return $displayNames[$format] ?? strtoupper($format) . ' Audio';
+    }
 }
